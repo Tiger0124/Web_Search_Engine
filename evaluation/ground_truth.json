@@ -1,0 +1,14 @@
+{
+    "python tutorial": [
+        "https://docs.python.org/3/tutorial/",
+        "https://www.python.org/about/gettingstarted/"
+    ],
+    "web development": [
+        "https://developer.mozilla.org/en-US/docs/Learn",
+        "https://www.w3schools.com/"
+    ],
+    "machine learning": [
+        "https://scikit-learn.org/",
+        "https://www.tensorflow.org/"
+    ]
+}

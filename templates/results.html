@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ query }} - Search Results</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: #fff;
+            color: #202124;
+        }
+        
+        header {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #ebebeb;
+        }
+        
+        .logo {
+            font-size: 30px;
+            font-weight: bold;
+            margin-right: 30px;
+            text-decoration: none;
+        }
+        
+        .logo span:nth-child(1) { color: #4285f4; }
+        .logo span:nth-child(2) { color: #ea4335; }
+        .logo span:nth-child(3) { color: #fbbc05; }
+        .logo span:nth-child(4) { color: #4285f4; }
+        .logo span:nth-child(5) { color: #34a853; }
+        .logo span:nth-child(6) { color: #ea4335; }
+        
+        .search-box {
+            display: flex;
+            flex: 1;
+            max-width: 600px;
+            border: 1px solid #dfe1e5;
+            border-radius: 24px;
+            padding: 8px 15px;
+            background: white;
+        }
+        
+        .search-box:hover {
+            box-shadow: 0 1px 6px rgba(32, 33, 36, 0.2);
+        }
+        
+        .search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 16px;
+        }
+        
+        .search-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #4285f4;
+            font-size: 14px;
+            padding: 5px 10px;
+        }
+        
+        main {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .stats {
+            color: #70757a;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .results {
+            list-style: none;
+        }
+        
+        .result-item {
+            margin-bottom: 30px;
+        }
+        
+        .result-url {
+            font-size: 14px;
+            color: #202124;
+            margin-bottom: 3px;
+            word-break: break-all;
+        }
+        
+        .result-title {
+            font-size: 20px;
+            color: #1a0dab;
+            text-decoration: none;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .result-title:hover {
+            text-decoration: underline;
+        }
+        
+        .result-snippet {
+            font-size: 14px;
+            color: #4d5156;
+            line-height: 1.58;
+        }
+        
+        .result-score {
+            font-size: 12px;
+            color: #70757a;
+            margin-top: 5px;
+        }
+        
+        .no-results {
+            padding: 40px;
+            text-align: center;
+            color: #70757a;
+        }
+        
+        .no-results h2 {
+            margin-bottom: 10px;
+            color: #202124;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="/" class="logo">
+            <span>S</span><span>e</span><span>a</span><span>r</span><span>c</span><span>h</span>
+        </a>
+        
+        <form action="/search" method="GET">
+            <div class="search-box">
+                <input type="text" name="q" class="search-input" 
+                       value="{{ query }}" autocomplete="off">
+                <button type="submit" class="search-button">Search</button>
+            </div>
+        </form>
+    </header>
+    
+    <main>
+        {% if results %}
+            <p class="stats">About {{ results|length }} results ({{ time }} seconds)</p>
+            
+            <ul class="results">
+                {% for result in results %}
+                <li class="result-item">
+                    <div class="result-url">{{ result.url }}</div>
+                    <a href="{{ result.url }}" class="result-title" target="_blank">
+                        {{ result.title or 'Untitled' }}
+                    </a>
+                    <p class="result-snippet">{{ result.content }}</p>
+                    <p class="result-score">Relevance score: {{ result.score }}</p>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="no-results">
+                <h2>No results found for "{{ query }}"</h2>
+                <p>Try different keywords or check your spelling.</p>
+            </div>
+        {% endif %}
+    </main>
+</body>
+</html>
