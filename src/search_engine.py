@@ -1,159 +1,205 @@
-"""Search engine module for processing queries and ranking results."""
-
+import pickle
 import math
-from collections import defaultdict
-from typing import Dict, List, Tuple
+import re
+import time
+from collections import defaultdict, Counter
+from nltk.corpus import stopwords
+import nltk
 
-from .indexer import Indexer
-from .utils import tokenize
-
+# 確保停用詞庫存在
+try:
+    nltk.data.find('corpora/stopwords')
+except LookupError:
+    nltk.download('stopwords')
 
 class SearchEngine:
-    """Search engine for processing queries and returning ranked results."""
-    
-    def __init__(self, indexer: Indexer):
-        """
-        Initialize the search engine.
+    def __init__(self, index_file='data/inverted_index.pkl'):
+        """初始化：載入倒排索引"""
+        self.index_file = index_file
+        self.stop_words = set(stopwords.words('english'))
+        self.data = self.load_index()
         
-        Args:
-            indexer: The indexer containing the inverted index.
+        # 從載入的資料中提取核心組件
+        self.inverted_index = self.data['inverted_index']
+        self.documents = self.data['documents']
+        self.idf = self.data['idf']
+
+    def load_index(self):
+        """讀取 Pickle 檔案"""
+        print(f"Loading index from {self.index_file}...")
+        with open(self.index_file, 'rb') as f:
+            return pickle.load(f)
+
+    def preprocess(self, text):
+        """與 Indexer 一致的文字處理邏輯"""
+        text = text.lower()
+        text = re.sub(r'[^\w\s]', '', text)
+        tokens = text.split()
+        return [t for t in tokens if t not in self.stop_words and len(t) > 1]
+
+    def get_query_vector(self, query_terms):
         """
-        self.indexer = indexer
-        
-        # BM25 parameters
-        self.k1 = 1.5  # Term frequency saturation parameter
-        self.b = 0.75  # Document length normalization parameter
-    
-    def search(self, query: str, top_k: int = 10) -> List[Dict]:
+        計算查詢句的向量 (Query Vector)
+        Q_vector = TF(in query) * IDF(from index)
         """
-        Search for documents matching the query.
+        query_vector = {}
+        term_counts = Counter(query_terms)
         
-        Args:
-            query: The search query.
-            top_k: Number of top results to return.
+        for term, count in term_counts.items():
+            if term in self.idf:
+                # TF * IDF
+                tf = count / len(query_terms)
+                idf = self.idf[term]
+                query_vector[term] = tf * idf
+        return query_vector
+
+    def calculate_cosine_similarity(self, query_vector, candidate_docs):
+        """
+        計算 Cosine Similarity
+        Formula: (A . B) / (||A|| * ||B||)
+        """
+        scores = {}
+        
+        # 1. 計算 Dot Product (A . B)
+        # 只需要計算 Query 中出現的詞，其他維度都是 0
+        for term, q_weight in query_vector.items():
+            if term in self.inverted_index:
+                for doc_id, d_weight in self.inverted_index[term].items():
+                    if doc_id in candidate_docs:
+                        scores[doc_id] = scores.get(doc_id, 0) + (q_weight * d_weight)
+
+        # 2. 計算 Magnitude (向量長度) ||A|| 和 ||B||
+        # Query Magnitude
+        q_mag = math.sqrt(sum(w**2 for w in query_vector.values()))
+        
+        # Document Magnitude (對候選文檔動態計算)
+        # Note: 在大規模系統中，這通常會在 Indexing 階段預先算好存起來
+        doc_mags = {}
+        for doc_id in scores.keys():
+            # 這裡需要遍歷該文檔的所有詞來算總長度，為了效能，我們簡化：
+            # 只基於 Query 相關維度做近似，或者回頭查完整向量。
+            # 為了準確性，我們這裡做一個簡單的優化：
+            # 假設我們只比較共同特徵空間 (這在短文本檢索是常見的簡化)，
+            # 但為了符合學術定義，嚴格來說應該要讀取該 doc 的所有 terms。
+            # 鑑於 Project 規模小，我們直接用目前累計的權重當作近似長度，
+            # 或者若要精確，應在 Day 2 儲存 doc_magnitude。
+            # 這裡我們採用 Cosine 的分母正規化：
+            doc_mags[doc_id] = math.sqrt(sum(self.inverted_index.get(t, {}).get(doc_id, 0)**2 for t in self.inverted_index))
+
+        # 3. 最終分數計算
+        final_scores = []
+        for doc_id, dot_product in scores.items():
+            d_mag = doc_mags.get(doc_id, 1)  # 避免除以 0
+            if q_mag == 0 or d_mag == 0:
+                similarity = 0
+            else:
+                similarity = dot_product / (q_mag * d_mag)
             
-        Returns:
-            List of search results with document info and scores.
+            final_scores.append((doc_id, similarity))
+            
+        # 排序：分數高到低
+        return sorted(final_scores, key=lambda x: x[1], reverse=True)
+
+    def generate_snippet(self, text, query_terms, window_size=50):
         """
-        # Tokenize the query
-        query_terms = tokenize(query)
-        
-        if not query_terms:
-            return []
-        
-        # Calculate BM25 scores for each document
-        doc_scores: Dict[int, float] = defaultdict(float)
-        
-        num_docs = len(self.indexer.documents)
-        avg_doc_len = self.indexer.avg_doc_length
-        
+        [Snippet Generation]
+        在原文中找到關鍵字，並擷取前後文。
+        """
+        text_lower = text.lower()
+        # 找到第一個出現的 Query Term
+        start_index = -1
         for term in query_terms:
-            postings = self.indexer.get_postings(term)
+            idx = text_lower.find(term)
+            if idx != -1:
+                start_index = idx
+                break
+        
+        if start_index == -1:
+            return text[:100] + "..."  # 沒找到關鍵字，回傳開頭
             
-            if not postings:
+        # 擷取前後視窗
+        start = max(0, start_index - window_size)
+        end = min(len(text), start_index + window_size)
+        snippet = text[start:end]
+        
+        # 修飾一下，加入 ...
+        if start > 0: snippet = "..." + snippet
+        if end < len(text): snippet = snippet + "..."
+        
+        return snippet
+
+    def search(self, query, top_k=10):
+        """
+        [Main Search Function]
+        包含 Bonus 功能：計時、片語搜尋
+        """
+        # [Bonus] 2. Query execution time
+        start_time = time.time()
+        
+        # [Bonus] 1. Phrase Search Detection (檢查是否有引號)
+        phrase_match = re.search(r'"(.*?)"', query)
+        exact_phrase = None
+        if phrase_match:
+            exact_phrase = phrase_match.group(1).lower()
+            # 移除引號內容，剩下的做一般搜尋，或直接針對片語做過濾
+            # 這裡策略：先用關鍵字搜尋拿到候選名單，再用 String Matching 過濾
+            clean_query = query.replace('"', '')
+        else:
+            clean_query = query
+
+        # 1. 解析 Query
+        query_terms = self.preprocess(clean_query)
+        if not query_terms:
+            return [], 0.0
+
+        # 2. 找出包含至少一個關鍵字的候選文檔 (OR Logic)
+        candidate_docs = set()
+        for term in query_terms:
+            if term in self.inverted_index:
+                candidate_docs.update(self.inverted_index[term].keys())
+
+        # 3. 計算向量相似度與排序
+        query_vector = self.get_query_vector(query_terms)
+        ranked_results = self.calculate_cosine_similarity(query_vector, candidate_docs)
+
+        # 4. 格式化結果與 [Bonus] 片語過濾
+        final_results = []
+        for doc_id, score in ranked_results:
+            doc = self.documents[doc_id]
+            
+            # [Bonus] Phrase Search Filter
+            # 如果使用者搜尋 "web crawler"，我們只回傳內文真的包含該字串的文檔
+            if exact_phrase and exact_phrase not in doc['text'].lower():
                 continue
+
+            snippet = self.generate_snippet(doc['text'], query_terms)
             
-            # Calculate IDF for the term
-            df = len(postings)
-            idf = math.log((num_docs - df + 0.5) / (df + 0.5) + 1)
+            final_results.append({
+                "title": doc['title'],
+                "url": doc['url'],
+                "score": round(score, 4),
+                "snippet": snippet
+            })
             
-            for doc_id, _ in postings:
-                # Get term frequency from posting
-                doc_len = self.indexer.doc_lengths.get(doc_id, 1)
-                
-                # Calculate BM25 score component
-                # We need the raw term frequency, which we'll approximate
-                tf = 1  # Simplified: assume tf=1 for presence
-                
-                # BM25 formula
-                numerator = tf * (self.k1 + 1)
-                denominator = tf + self.k1 * (1 - self.b + self.b * (doc_len / avg_doc_len))
-                
-                score = idf * (numerator / denominator)
-                doc_scores[doc_id] += score
-        
-        # Sort documents by score
-        sorted_docs = sorted(doc_scores.items(), key=lambda x: x[1], reverse=True)
-        
-        # Get top-k results
-        results = []
-        for doc_id, score in sorted_docs[:top_k]:
-            doc = self.indexer.get_document(doc_id)
-            if doc:
-                result = {
-                    'url': doc.get('url', ''),
-                    'title': doc.get('title', 'Untitled'),
-                    'content': doc.get('content', '')[:200] + '...',  # Snippet
-                    'score': round(score, 4)
-                }
-                results.append(result)
-        
-        return results
+            if len(final_results) >= top_k:
+                break
+
+        execution_time = time.time() - start_time
+        return final_results, execution_time
+
+if __name__ == "__main__":
+    # 簡單測試
+    engine = SearchEngine()
     
-    def search_boolean(self, query: str, operator: str = 'AND') -> List[Dict]:
-        """
-        Perform boolean search with AND/OR operators.
-        
-        Args:
-            query: The search query.
-            operator: Boolean operator ('AND' or 'OR').
-            
-        Returns:
-            List of matching documents.
-        """
-        query_terms = tokenize(query)
-        
-        if not query_terms:
-            return []
-        
-        result_docs = None
-        
-        for term in query_terms:
-            postings = self.indexer.get_postings(term)
-            term_docs = set(doc_id for doc_id, _ in postings)
-            
-            if result_docs is None:
-                result_docs = term_docs
-            elif operator.upper() == 'AND':
-                result_docs = result_docs.intersection(term_docs)
-            else:  # OR
-                result_docs = result_docs.union(term_docs)
-        
-        if result_docs is None:
-            return []
-        
-        # Get document details
-        results = []
-        for doc_id in result_docs:
-            doc = self.indexer.get_document(doc_id)
-            if doc:
-                result = {
-                    'url': doc.get('url', ''),
-                    'title': doc.get('title', 'Untitled'),
-                    'content': doc.get('content', '')[:200] + '...'
-                }
-                results.append(result)
-        
-        return results
+    # 測試查詢 (你可以換成你資料裡有的詞)
+    test_query = "python documentation"
+    print(f"Searching for: {test_query}")
     
-    def get_suggestions(self, prefix: str, limit: int = 5) -> List[str]:
-        """
-        Get search suggestions based on prefix matching.
-        
-        Args:
-            prefix: The prefix to match.
-            limit: Maximum number of suggestions.
-            
-        Returns:
-            List of suggested terms.
-        """
-        prefix = prefix.lower()
-        suggestions = []
-        
-        for term in self.indexer.inverted_index.keys():
-            if term.startswith(prefix):
-                suggestions.append(term)
-                if len(suggestions) >= limit:
-                    break
-        
-        return suggestions
+    results, time_taken = engine.search(test_query)
+    
+    print(f"Found {len(results)} results in {time_taken:.4f} seconds.")
+    for res in results:
+        print(f"[{res['score']}] {res['title']}")
+        print(f"   {res['url']}")
+        print(f"   {res['snippet']}")
+        print("-" * 30)
