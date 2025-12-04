@@ -66,15 +66,14 @@ class Indexer:
         doc_term_freqs = {} # 暫存每份文件的詞頻
         df_counts = Counter() # Document Frequency
         
-        # Step 1: 計算 TF (Term Frequency) 與 DF (Document Frequency)
+        # --- Step 1: 計算 TF (Term Frequency) 與 DF (Document Frequency) ---
+        # (這是之前可能被不小心刪除的部分)
         for doc_id, doc_data in self.documents.items():
-            # 結合標題與內文，增加標題權重 (Optional trick: title * 2)
+            # 結合標題與內文
             content = f"{doc_data['title']} {doc_data['text']}"
             tokens = self.preprocess(content)
             
             # 計算該文件內的詞頻 (TF)
-            # 使用 Log Normalization 避免長文優勢: 1 + log(tf) 或簡單 tf / len(doc)
-            # 這裡使用最簡單的 raw frequency / doc_length
             term_counts = Counter(tokens)
             total_terms = len(tokens) if len(tokens) > 0 else 1
             
@@ -83,23 +82,33 @@ class Indexer:
                 for term, count in term_counts.items()
             }
             
-            # 更新 DF (每個詞在多少文件中出現過)
+            # 更新 DF
             for term in term_counts.keys():
                 df_counts[term] += 1
                 
-        # Step 2: 計算 IDF (Inverse Document Frequency)
-        # Formula: log(N / DF)
+        # --- Step 2: 計算 IDF (Inverse Document Frequency) ---
         for term, df in df_counts.items():
             self.idf[term] = math.log10(N / df)
             
-        # Step 3: 計算最終 TF-IDF 並存入 Inverted Index
-        # Structure: { term: { doc_id: tf_idf_score } }
+        # --- Step 3: 計算最終 TF-IDF 並存入 Inverted Index ---
+        # (這是我們優化的部分：同時計算 Document Magnitude)
         for doc_id, tf_dict in doc_term_freqs.items():
+            magnitude_sq = 0  # 累加平方和
+            
             for term, tf in tf_dict.items():
                 idf = self.idf[term]
-                self.inverted_index[term][doc_id] = tf * idf
+                weight = tf * idf
+                self.inverted_index[term][doc_id] = weight
+                
+                # 累加權重平方
+                magnitude_sq += weight ** 2
+            
+            # 將算好的長度存入 documents 結構中
+            self.documents[doc_id]['magnitude'] = math.sqrt(magnitude_sq)
                 
         print(f"Index built! Total terms: {len(self.inverted_index)}")
+
+    # save_index 不需要大改，因為它已經會儲存 self.documents
 
     def save_index(self):
         """儲存索引與文件對應表 (使用 pickle 序列化)"""

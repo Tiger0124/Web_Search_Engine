@@ -54,42 +54,24 @@ class SearchEngine:
         return query_vector
 
     def calculate_cosine_similarity(self, query_vector, candidate_docs):
-        """
-        計算 Cosine Similarity
-        Formula: (A . B) / (||A|| * ||B||)
-        """
         scores = {}
         
-        # 1. 計算 Dot Product (A . B)
-        # 只需要計算 Query 中出現的詞，其他維度都是 0
+        # 1. 計算 Dot Product (只計算 Query 有出現的詞)
         for term, q_weight in query_vector.items():
             if term in self.inverted_index:
                 for doc_id, d_weight in self.inverted_index[term].items():
                     if doc_id in candidate_docs:
                         scores[doc_id] = scores.get(doc_id, 0) + (q_weight * d_weight)
 
-        # 2. 計算 Magnitude (向量長度) ||A|| 和 ||B||
-        # Query Magnitude
+        # 2. 計算 Magnitude
         q_mag = math.sqrt(sum(w**2 for w in query_vector.values()))
         
-        # Document Magnitude (對候選文檔動態計算)
-        # Note: 在大規模系統中，這通常會在 Indexing 階段預先算好存起來
-        doc_mags = {}
-        for doc_id in scores.keys():
-            # 這裡需要遍歷該文檔的所有詞來算總長度，為了效能，我們簡化：
-            # 只基於 Query 相關維度做近似，或者回頭查完整向量。
-            # 為了準確性，我們這裡做一個簡單的優化：
-            # 假設我們只比較共同特徵空間 (這在短文本檢索是常見的簡化)，
-            # 但為了符合學術定義，嚴格來說應該要讀取該 doc 的所有 terms。
-            # 鑑於 Project 規模小，我們直接用目前累計的權重當作近似長度，
-            # 或者若要精確，應在 Day 2 儲存 doc_magnitude。
-            # 這裡我們採用 Cosine 的分母正規化：
-            doc_mags[doc_id] = math.sqrt(sum(self.inverted_index.get(t, {}).get(doc_id, 0)**2 for t in self.inverted_index))
-
-        # 3. 最終分數計算
         final_scores = []
         for doc_id, dot_product in scores.items():
-            d_mag = doc_mags.get(doc_id, 1)  # 避免除以 0
+            # [Optimization Fix] 直接從 self.documents 讀取預算好的 magnitude
+            # 如果讀不到 (例如舊資料)，預設為 1 避免報錯，但建議重跑 indexer
+            d_mag = self.documents[doc_id].get('magnitude', 1.0)
+            
             if q_mag == 0 or d_mag == 0:
                 similarity = 0
             else:
@@ -97,7 +79,6 @@ class SearchEngine:
             
             final_scores.append((doc_id, similarity))
             
-        # 排序：分數高到低
         return sorted(final_scores, key=lambda x: x[1], reverse=True)
 
     def generate_snippet(self, text, query_terms, window_size=50):
@@ -192,7 +173,7 @@ if __name__ == "__main__":
     engine = SearchEngine()
     
     # 測試查詢 (你可以換成你資料裡有的詞)
-    test_query = "python documentation"
+    test_query = "python"
     print(f"Searching for: {test_query}")
     
     results, time_taken = engine.search(test_query)
