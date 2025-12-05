@@ -5,6 +5,7 @@ import time
 from collections import defaultdict, Counter
 from nltk.corpus import stopwords
 import nltk
+from nltk.stem import PorterStemmer # [新增]
 
 # 確保停用詞庫存在
 try:
@@ -14,12 +15,12 @@ except LookupError:
 
 class SearchEngine:
     def __init__(self, index_file='data/inverted_index.pkl'):
-        """初始化：載入倒排索引"""
+        """初始化"""
         self.index_file = index_file
         self.stop_words = set(stopwords.words('english'))
+        self.stemmer = PorterStemmer() # [新增] 初始化 Stemmer
         self.data = self.load_index()
         
-        # 從載入的資料中提取核心組件
         self.inverted_index = self.data['inverted_index']
         self.documents = self.data['documents']
         self.idf = self.data['idf']
@@ -31,11 +32,17 @@ class SearchEngine:
             return pickle.load(f)
 
     def preprocess(self, text):
-        """與 Indexer 一致的文字處理邏輯"""
+        """必須與 Indexer 的邏輯完全一致"""
         text = text.lower()
-        text = re.sub(r'[^\w\s]', '', text)
+        text = re.sub(r'[^\w\s]', ' ', text)
         tokens = text.split()
-        return [t for t in tokens if t not in self.stop_words and len(t) > 1]
+        
+        # [修改] 加入 Stemming
+        return [
+            self.stemmer.stem(t) 
+            for t in tokens 
+            if t not in self.stop_words and len(t) > 1
+        ]
 
     def get_query_vector(self, query_terms):
         """
