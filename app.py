@@ -37,6 +37,18 @@ def search():
         count=len(results)
     )
 
+@app.route('/about')
+def about():
+    """關於頁面：顯示系統統計資訊"""
+    # 從 search_engine 物件中讀取已索引的文件總數
+    # search_engine.documents 是一個字典，key 是 doc_id
+    doc_count = len(search_engine.documents) if hasattr(search_engine, 'documents') else 0
+    
+    # 也可以順便顯示有多少個關鍵字 (Bonus)
+    term_count = len(search_engine.inverted_index) if hasattr(search_engine, 'inverted_index') else 0
+    
+    return render_template('about.html', doc_count=doc_count, term_count=term_count)
+
 if __name__ == '__main__':
     # 啟動 Flask Server，debug=True 方便開發時除錯
     app.run(debug=True, port=5000)
