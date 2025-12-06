@@ -19,10 +19,6 @@ class SearchEngine:
             indexer: The indexer containing the inverted index.
         """
         self.indexer = indexer
-        
-        # BM25 parameters
-        self.k1 = 1.5  # Term frequency saturation parameter
-        self.b = 0.75  # Document length normalization parameter
     
     def search(self, query: str, top_k: int = 10) -> List[Dict]:
         """
@@ -41,36 +37,27 @@ class SearchEngine:
         if not query_terms:
             return []
         
-        # Calculate BM25 scores for each document
+        # 改用cosine similarity
         doc_scores: Dict[int, float] = defaultdict(float)
-        
-        num_docs = len(self.indexer.documents)
-        avg_doc_len = self.indexer.avg_doc_length
-        
+        # 算query vector的tf
+        query_term_freq = defaultdict(int)
         for term in query_terms:
+            query_term_freq[term] += 1
+        for term, q_tf in query_term_freq.items():
             postings = self.indexer.get_postings(term)
-            
             if not postings:
                 continue
-            
-            # Calculate IDF for the term
+            # 算query的tf-idf
             df = len(postings)
-            idf = math.log((num_docs - df + 0.5) / (df + 0.5) + 1)
-            
-            for doc_id, _ in postings:
-                # Get term frequency from posting
-                doc_len = self.indexer.doc_lengths.get(doc_id, 1)
-                
-                # Calculate BM25 score component
-                # We need the raw term frequency, which we'll approximate
-                tf = 1  # Simplified: assume tf=1 for presence
-                
-                # BM25 formula
-                numerator = tf * (self.k1 + 1)
-                denominator = tf + self.k1 * (1 - self.b + self.b * (doc_len / avg_doc_len))
-                
-                score = idf * (numerator / denominator)
-                doc_scores[doc_id] += score
+            num_docs = len(self.indexer.documents)
+            if df == 0:
+                idf = 0
+            else:
+                idf = math.log(num_docs / df)
+            query_weight = (q_tf / len(query_terms)) * idf
+            # 算內積
+            for doc_id, doc_tfidf_weight in postings:
+                doc_scores[doc_id] += query_weight * doc_tfidf_weight
         
         # Sort documents by score
         sorted_docs = sorted(doc_scores.items(), key=lambda x: x[1], reverse=True)
