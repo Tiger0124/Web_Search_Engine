@@ -69,7 +69,7 @@ def run_evaluation():
         retrieved_urls = [res['url'] for res in results]
 
         # --- [DEBUG 開始] ---
-        print(f"  [Debug] Ground Truth: {relevant_urls[:2]} ...") # 只印前兩個示意
+        print(f"  [Debug] Ground Truth: {relevant_urls} ...") # 只印前兩個示意
         print(f"  [Debug] Retrieved:    {retrieved_urls}")
         # --- [DEBUG 結束] ---
         

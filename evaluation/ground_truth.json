@@ -16,5 +16,11 @@
         "https://www.tensorflow.org/tutorials",
         "https://www.tensorflow.org/guide",
         "https://www.tensorflow.org/resources/learn-ml"
+    ],
+    "Sass": [
+        "https://www.w3schools.com/sass/sass_functions_string.asp",
+        "https://www.w3schools.com/",
+        "https://developer.mozilla.org/en-US/docs/Learn_web_development/Getting_started/Soft_skills/Workflows_and_processes",
+        "https://developer.mozilla.org/"
     ]
 }
