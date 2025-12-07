@@ -35,31 +35,21 @@ def run_evaluation():
     # 1. 載入搜尋引擎
     engine = SearchEngine(index_file=os.path.join(project_root, 'data/inverted_index.pkl'))
     
-    # 2. 定義 Ground Truth (人工標註的標準答案) [cite: 63, 439]
-    # 這是評估最耗時的部分，你需要根據你的爬蟲資料，手動填寫幾個查詢的正確 URL。
-    # 格式: "查詢詞": ["正確連結1", "正確連結2", ...]
-    ground_truth = {
-        "python": [
-            "https://docs.python.org/3/",
-            "https://www.python.org/about/gettingstarted/",
-            "https://docs.python.org/3.15/",
-            ""
-        ],
-        "w3schools": [
-            "https://www.w3schools.com",
-            "https://www.w3schools.com/academy/index.php",
-            "https://www.w3schools.com/spaces/index.php",
-            "https://www.w3schools.com/html/default.asp",
-            # 請根據你的 crawled_data.json 實際內容填寫
-        ],
-        "tensorflow": [
-            "https://www.tensorflow.org/",
-            "https://www.tensorflow.org/learn",
-            "https://www.tensorflow.org/tutorials",
-            "https://www.tensorflow.org/guide",
-            "https://www.tensorflow.org/resources/learn-ml",
-        ],
-    }
+    # 2. 讀取 Ground Truth (從 JSON 檔案)
+    json_path = os.path.join(current_dir, 'ground_truth.json')
+    
+    if not os.path.exists(json_path):
+        print(f"[Error] Ground truth file not found at: {json_path}")
+        print("Please create 'ground_truth.json' first.")
+        return
+
+    print(f"Loading ground truth from: {json_path}")
+    try:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            ground_truth = json.load(f)
+    except json.JSONDecodeError:
+        print(f"[Error] Failed to parse {json_path}. Please check if it is valid JSON.")
+        return
     
     if not ground_truth:
         print("[Warning] Ground truth is empty. Please edit evaluate.py to add relevant URLs.")
