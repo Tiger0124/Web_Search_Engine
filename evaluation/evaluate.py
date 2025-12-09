@@ -27,7 +27,7 @@ def calculate_precision_at_k(retrieved_urls, relevant_urls, k=5):
         if is_relevant:
             tp += 1
             
-    return tp / k
+    return tp / k, tp
 
 def run_evaluation():
     print("--- Starting Evaluation ---")
@@ -69,17 +69,17 @@ def run_evaluation():
         retrieved_urls = [res['url'] for res in results]
 
         # --- [DEBUG 開始] ---
-        print(f"  [Debug] Ground Truth: {relevant_urls} ...") # 只印前兩個示意
-        print(f"  [Debug] Retrieved:    {retrieved_urls}")
+        # print(f"  [Debug] Ground Truth: {relevant_urls} ...") # 只印前兩個示意
+        # print(f"  [Debug] Retrieved:    {retrieved_urls}")
         # --- [DEBUG 結束] ---
         
-        # 計算分數
-        score = calculate_precision_at_k(retrieved_urls, relevant_urls, k)
+        # 接收兩個值 (分數, 答對數)
+        score, tp = calculate_precision_at_k(retrieved_urls, relevant_urls, k)
         total_precision += score
         
         # 顯示詳細結果
-        print(f"  - Retrieved: {len(retrieved_urls)}")
-        print(f"  - Relevant (Ground Truth): {len(relevant_urls)}")
+        print(f"  - Retrieved (Top K): {len(retrieved_urls)}")
+        print(f"  - Found Relevant (TP): {tp}")
         print(f"  - Precision@{k}: {score:.2f}")
         print("-" * 30)
 

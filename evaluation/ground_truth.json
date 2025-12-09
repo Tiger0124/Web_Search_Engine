@@ -2,7 +2,8 @@
     "python": [
         "https://docs.python.org/3/",
         "https://www.python.org/about/gettingstarted/",
-        "https://docs.python.org/3.15/"
+        "https://docs.python.org/3.15/",
+        "https://docs.python.org/"
     ],
     "w3schools": [
         "https://www.w3schools.com",
@@ -20,7 +21,6 @@
     "Sass": [
         "https://www.w3schools.com/sass/sass_functions_string.asp",
         "https://www.w3schools.com/",
-        "https://developer.mozilla.org/en-US/docs/Learn_web_development/Getting_started/Soft_skills/Workflows_and_processes",
         "https://developer.mozilla.org/"
     ]
 }

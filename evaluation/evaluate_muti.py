@@ -15,31 +15,34 @@ def calculate_metrics(retrieved_urls, relevant_urls, k=5):
     """
     top_k_retrieved = retrieved_urls[:k]
     
-    # --- Precision 分子：有多少個結果是相關的？ ---
     tp_precision = 0
+    found_relevant_urls = set() # [Recall 關鍵] 用集合紀錄「哪些標準答案被找到了」
+    
+    # --- 核心修改：統一從「搜尋結果」出發，去對答案 ---
     for ret_url in top_k_retrieved:
-        is_relevant = False
+        is_valid_result = False
+        
+        # 拿這個搜尋結果，去跟每一個標準答案 (GT) 比對
         for true_url in relevant_urls:
             clean_true = true_url.rstrip('/')
+            
+            # 判斷邏輯：標準答案 (GT) 是否包含在 搜尋結果 (Result) 中？
+            # 例如 GT: "python.org", Result: "python.org/doc" -> True
             if clean_true in ret_url:
-                is_relevant = True
-                break
-        if is_relevant:
+                is_valid_result = True
+                found_relevant_urls.add(true_url) # 記錄：這個 GT 被抓到了！
+                # 這裡不 break，因為一個結果可能同時滿足多個 GT (視您的 GT 定義而定)
+                # 用 set 也不怕重複加
+        
+        # 如果這個結果有對應到任何一個 GT，Precision 分子 +1
+        if is_valid_result:
             tp_precision += 1
             
-    # --- Recall 分子：有多少個 GT 被找到了？ ---
-    tp_recall = 0
-    for true_url in relevant_urls:
-        clean_true = true_url.rstrip('/')
-        matched = False
-        for ret_url in top_k_retrieved:
-            if clean_true in ret_url:
-                matched = True
-                break
-        if matched:
-            tp_recall += 1
+    # --- 統計 Recall 分子 ---
+    # 看 set 裡面收集到了幾個不重複的 GT
+    tp_recall = len(found_relevant_urls)
 
-    # --- 計算指標 ---
+    # --- 計算指標 (保持不變) ---
     precision = tp_precision / k
     
     total_relevant = len(relevant_urls)
@@ -50,7 +53,6 @@ def calculate_metrics(retrieved_urls, relevant_urls, k=5):
     else:
         f1 = 0.0
         
-    # 多回傳 tp_precision 和 tp_recall 讓顯示更正確
     return precision, recall, f1, tp_precision, tp_recall
 
 def run_evaluation():
@@ -85,7 +87,12 @@ def run_evaluation():
         
         results, _ = engine.search(query, top_k=k)
         retrieved_urls = [res['url'] for res in results]
-        
+
+        # --- [DEBUG 開始] ---
+        print(f"  [Debug] Ground Truth: {relevant_urls} ...") # 只印前兩個示意
+        print(f"  [Debug] Retrieved:    {retrieved_urls}")
+        # --- [DEBUG 結束] ---
+
         # 接收 5 個回傳值
         p, r, f1, tp_p, tp_r = calculate_metrics(retrieved_urls, relevant_urls, k)
         
