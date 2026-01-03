@@ -13,6 +13,37 @@
         .result-snippet { color: #4d5156; font-size: 0.95rem; }
         .meta-info { color: #70757a; font-size: 0.85rem; margin-bottom: 15px; }
         .score-badge { font-size: 0.75rem; background-color: #e9ecef; color: #666; padding: 2px 6px; border-radius: 4px; }
+        
+        /* [新增] GenAI 區塊的樣式 */
+        .ai-summary-box {
+            background-color: #f0f7ff; /* 淺藍色背景 */
+            border: 1px solid #cce5ff;
+            border-left: 5px solid #0d6efd; /* 左側加粗藍線 */
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+        }
+        .ai-title {
+            font-weight: bold;
+            color: #0d6efd;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            font-size: 1.1rem;
+        }
+        .ai-icon { margin-right: 8px; font-size: 1.2rem; }
+        .generated-keywords-section {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .ai-badge {
+            background-color: #e7f1ff;
+            color: #0d6efd;
+            border: 1px solid #b6d4fe;
+            margin-right: 5px;
+            font-weight: normal;
+        }
     </style>
 </head>
 <body>
@@ -30,6 +61,25 @@
 <div class="container">
     <div class="row">
         <div class="col-md-8">
+            
+            {% if generated_queries %}
+            <div class="generated-keywords-section">
+                <small class="text-muted d-block mb-2">✨ AI Rewritten Queries (Gemini):</small>
+                {% for q in generated_queries %}
+                    <span class="badge rounded-pill ai-badge">{{ q }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if ai_response %}
+            <div class="ai-summary-box">
+                <div class="ai-title">
+                    <span class="ai-icon">🤖</span> Gemini AI 摘要與解釋
+                </div>
+                <div style="white-space: pre-line; line-height: 1.6;">{{ ai_response }}</div>
+            </div>
+            {% endif %}
+
             <p class="meta-info">
                 About {{ count }} results ({{ "%.4f"|format(time_taken) }} seconds)
             </p>
