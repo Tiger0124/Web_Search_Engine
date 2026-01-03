@@ -1,5 +1,7 @@
 from flask import Flask, render_template, request
 from src.search_engine import SearchEngine
+from src.query_rewrite import QueryRewriter
+from src.ai_explain import AIExplainer
 import time
 
 app = Flask(__name__)
@@ -10,6 +12,11 @@ print("Initializing Search Engine...")
 # 確保你的 index 檔案路徑正確，如果按照 Day 2 執行，應該在 data/inverted_index.pkl
 search_engine = SearchEngine()
 print("Search Engine ready!")
+# 初始化 AI
+# 請確保您有設定環境變數 OPENAI_API_KEY，或直接在這邊傳入 api_key="sk-..."
+rewriter = QueryRewriter()
+explainer = AIExplainer()
+print("System ready!")
 
 @app.route('/')
 def index():
@@ -18,23 +25,49 @@ def index():
 
 @app.route('/search')
 def search():
-    """搜尋結果頁"""
-    # 從 URL 參數獲取查詢詞 (e.g., /search?q=python)
     query = request.args.get('q', '').strip()
-    
     if not query:
         return render_template('index.html')
     
-    # 呼叫我們在 Day 3 寫好的核心邏輯
-    # 這裡會回傳 results (list) 和 execution_time (float)
-    results, time_taken = search_engine.search(query, top_k=10)
+    start_time = time.time()
+
+    # --- 階段 1: GenAI 改寫查詢 (Part C) ---
+    # 不再直接搜尋 query，而是先問 AI
+    generated_queries = rewriter.rewrite(query)
+    print(f"Original: {query} -> Generated: {generated_queries}")
     
+    # --- 階段 2: 執行搜尋 (Part B) ---
+    # 策略：搜尋所有生成的關鍵字，然後合併結果 (或是只搜第一個)
+    # 這裡示範簡單版：只搜尋 AI 產生的第一個關鍵字，或者把原本的 query 也加入搜尋
+    
+    final_results = []
+    seen_urls = set()
+    
+    # 搜尋 AI 建議的關鍵字
+    for q in generated_queries:
+        results, _ = search_engine.search(q, top_k=5)
+        for res in results:
+            if res['url'] not in seen_urls:
+                final_results.append(res)
+                seen_urls.add(res['url'])
+    
+    # 截斷結果只取前 10 筆
+    final_results = final_results[:10]
+    
+    # --- 階段 3: GenAI 解釋結果 (Part D) ---
+    ai_response = explainer.explain(query, final_results)
+    
+    total_time = time.time() - start_time
+    
+    # 回傳給前端 (記得修改 results.html 來顯示 generated_queries 和 ai_response)
     return render_template(
         'results.html', 
         query=query, 
-        results=results, 
-        time_taken=time_taken,
-        count=len(results)
+        generated_queries=generated_queries, # [新增] 讓前端顯示 AI 產生了什麼關鍵字
+        results=final_results, 
+        ai_response=ai_response,             # [新增] 讓前端顯示 AI 的總結
+        time_taken=total_time,
+        count=len(final_results)
     )
 
 @app.route('/about')
