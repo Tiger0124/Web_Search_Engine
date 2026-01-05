@@ -21,14 +21,6 @@ class SearchEngine:
         self.stemmer = PorterStemmer() # [新增] 初始化 Stemmer
         self.data = self.load_index()
         
-<<<<<<< HEAD
-        Args:
-            indexer: The indexer containing the inverted index.
-        """
-        self.indexer = indexer
-    
-    def search(self, query: str, top_k: int = 10) -> List[Dict]:
-=======
         self.inverted_index = self.data['inverted_index']
         self.documents = self.data['documents']
         self.idf = self.data['idf']
@@ -53,7 +45,6 @@ class SearchEngine:
         ]
 
     def get_query_vector(self, query_terms):
->>>>>>> 0e965e31527c87e5ab26cb86485385d5287fa1a2
         """
         計算查詢句的向量 (Query Vector)
         Q_vector = TF(in query) * IDF(from index)
@@ -99,53 +90,6 @@ class SearchEngine:
 
     def generate_snippet(self, text, query_terms, window_size=50):
         """
-<<<<<<< HEAD
-        # Tokenize the query
-        query_terms = tokenize(query)
-        
-        if not query_terms:
-            return []
-        
-        # 改用cosine similarity
-        doc_scores: Dict[int, float] = defaultdict(float)
-        # 算query vector的tf
-        query_term_freq = defaultdict(int)
-        for term in query_terms:
-            query_term_freq[term] += 1
-        for term, q_tf in query_term_freq.items():
-            postings = self.indexer.get_postings(term)
-            if not postings:
-                continue
-            # 算query的tf-idf
-            df = len(postings)
-            num_docs = len(self.indexer.documents)
-            if df == 0:
-                idf = 0
-            else:
-                idf = math.log(num_docs / df)
-            query_weight = (q_tf / len(query_terms)) * idf
-            # 算內積
-            for doc_id, doc_tfidf_weight in postings:
-                doc_scores[doc_id] += query_weight * doc_tfidf_weight
-        
-        # Sort documents by score
-        sorted_docs = sorted(doc_scores.items(), key=lambda x: x[1], reverse=True)
-        
-        # Get top-k results
-        results = []
-        for doc_id, score in sorted_docs[:top_k]:
-            doc = self.indexer.get_document(doc_id)
-            if doc:
-                result = {
-                    'url': doc.get('url', ''),
-                    'title': doc.get('title', 'Untitled'),
-                    'content': doc.get('content', '')[:200] + '...',  # Snippet
-                    'score': round(score, 4)
-                }
-                results.append(result)
-        
-        return results
-=======
         [Snippet Generation]
         在原文中找到關鍵字，並擷取前後文。
         """
@@ -234,7 +178,6 @@ class SearchEngine:
 if __name__ == "__main__":
     # 簡單測試
     engine = SearchEngine()
->>>>>>> 0e965e31527c87e5ab26cb86485385d5287fa1a2
     
     # 測試查詢 (你可以換成你資料裡有的詞)
     test_query = "python"

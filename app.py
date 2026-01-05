@@ -33,7 +33,9 @@ def search():
 
     # --- 階段 1: GenAI 改寫查詢 (Part C) ---
     # 不再直接搜尋 query，而是先問 AI
-    generated_queries = rewriter.rewrite(query)
+    # generated_queries = rewriter.rewrite(query)
+    generated_queries = rewriter.rewrite(query, version='A') # 爛prompt
+    # generated_queries = rewriter.rewrite(query, version='B') # 好prompt
     print(f"Original: {query} -> Generated: {generated_queries}")
     
     # --- 階段 2: 執行搜尋 (Part B) ---

@@ -1,5 +1,6 @@
 import os
 import json
+import re
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
@@ -14,55 +15,88 @@ class QueryRewriter:
         
         self.client = genai.Client(api_key=api_key)
         
-        self.candidate_models = [
-            "gemini-3-flash-preview",
-            "gemini-2.5-flash"
-        ]
+        self.model_name = "gemini-2.0-flash-exp" 
 
-    def rewrite(self, user_question):
-        prompt = f"""
-        你是一個搜尋引擎輔助助手。
-        任務：將使用者的自然語言問題轉換為 2-3 個適合搜尋引擎的關鍵字查詢。
-        
-        使用者問題："{user_question}"
-        
-        輸出格式要求 (JSON)：
-        {{
-            "queries": ["關鍵字1", "關鍵字2"]
-        }}
-        
-        限制：
-        1. 只要回傳 JSON，不要有其他廢話。
-        2. 關鍵字必須適合用於 TF-IDF 關鍵字搜尋。
+    def rewrite(self, user_question, version='B'):
         """
-
-        # 自動嘗試所有候選模型
-        for model_name in self.candidate_models:
-            try:
-                # print(f"Trying model: {model_name}...") # 除錯用
-                response = self.client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json"
-                    )
-                )
-                
-                result = json.loads(response.text)
-                final_queries = result.get("queries", [user_question])
-                # print(f"Success with {model_name}!")
-                return final_queries
+        將使用者問題轉換為關鍵字
+        :param user_question: 使用者輸入的問題
+        :param version: 'A' (Basic) 或 'B' (Advanced)
+        """
+        
+        if version == 'A':
+            # === Prompt A: Basic Version (基礎版) ===
+            # 指令模糊，容易產生多餘文字或格式錯誤
+            prompt = f"""
+            請幫我把這個問題變成搜尋關鍵字：
+            {user_question}
+            給我 JSON 格式。
+            """
+        else:
+            # === Prompt B: Advanced Version (進階版) ===
+            # 包含：角色設定、明確任務、格式限制、範例 (Few-Shot)、防呆機制
+            prompt = f"""
+            你是一個專業的搜尋引擎優化 (SEO) 專家。
             
-            except Exception as e:
-                # 如果是 404 或其他 API 錯誤，就試下一個模型
-                # print(f"Model {model_name} failed: {e}")
-                continue
+            [任務]
+            將使用者的「自然語言問題」轉換為 2-3 組適合用於「關鍵字搜尋引擎 (TF-IDF)」的查詢字串。
+            
+            [使用者問題]
+            "{user_question}"
+            
+            [限制與規則]
+            1. 輸出必須是純 JSON 格式，不要包含 Markdown 標記 (如 ```json ... ```)。
+            2. 這一份 JSON 必須包含一個鍵值 "queries"，對應一個字串列表。
+            3. 關鍵字必須去除虛詞 (如 "the", "is", "what")，只保留實詞。
+            4. 如果問題包含專有名詞 (如 "Python", "Taiwan")，必須保留。
+            5. 請提供不同切入點的關鍵字組合 (例如同義詞)。
+            
+            [輸出範例]
+            User: "What Taiwanese universities are strong in AI research?"
+            Output: {{ "queries": ["Taiwan university AI research", "Artificial Intelligence research center Taiwan", "top CS universities Taiwan"] }}
+            
+            [你的回答]
+            """
 
-        # 如果全部失敗，回傳原始問題
-        print("All GenAI models failed. Returning original query.")
-        return [user_question]
+        try:
+            # 呼叫 GenAI
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json" # 強制 JSON 輸出 (Gemini 強項)
+                )
+            )
+            
+            # 解析 JSON
+            result = json.loads(response.text)
+            
+            # 容錯處理：如果 AI 回傳的 JSON 結構不對，嘗試修復或回傳預設值
+            if "queries" in result:
+                return result["queries"]
+            else:
+                # 萬一 AI 回傳了 list 或是其他 key
+                return list(result.values())[0] if result else [user_question]
+
+        except Exception as e:
+            print(f"[GenAI Error] {e}")
+            # 發生錯誤時的 Fallback：直接回傳原始問題切開的字
+            return [user_question]
 
 if __name__ == "__main__":
+    # 測試區塊
     rewriter = QueryRewriter()
-    print("Testing QueryRewriter...")
-    print(rewriter.rewrite("台灣哪裡有 AI 相關的大學系所？"))
+    q = "台灣有哪些大學有在做深度偽造 (Deepfake) 的研究？"
+    
+    print(f"原始問題: {q}")
+    print("-" * 30)
+    
+    print("測試 Prompt A (Basic):")
+    res_a = rewriter.rewrite(q, version='A')
+    print(res_a)
+    
+    print("-" * 30)
+    
+    print("測試 Prompt B (Advanced):")
+    res_b = rewriter.rewrite(q, version='B')
+    print(res_b)
