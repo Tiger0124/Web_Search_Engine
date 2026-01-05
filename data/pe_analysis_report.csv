@@ -1,6 +1,7 @@
 ﻿Question,Prompt_A_Output,Prompt_A_Time,Prompt_B_Output,Prompt_B_Time
-Python tutorial,['Python tutorial'],0.1043,['Python tutorial'],0.0481
-What Taiwanese universities are strong in AI research?,['What Taiwanese universities are strong in AI research?'],0.0895,['What Taiwanese universities are strong in AI research?'],0.05
-How to build a web crawler that respects robots.txt?,['How to build a web crawler that respects robots.txt?'],0.2924,['How to build a web crawler that respects robots.txt?'],0.1057
-台北有什麼好吃的牛肉麵推薦？,['台北有什麼好吃的牛肉麵推薦？'],0.3759,['台北有什麼好吃的牛肉麵推薦？'],0.1811
-Deep learning vs Machine learning differences,['Deep learning vs Machine learning differences'],0.1265,['Deep learning vs Machine learning differences'],0.1372
+Python tutorial,Python tutorial,2.4905,"['Python tutorial', 'learn Python guide', 'Python programming introduction']",3.1459
+What Taiwanese universities are strong in AI research?,"['台灣 AI 大學', '台灣 人工智慧 研究 大學', '台灣 大學 AI 排名', '台灣 頂尖 AI 領域 大學']",2.9918,"['Taiwan university AI research', 'Top Artificial Intelligence universities Taiwan', 'Leading Computer Science AI departments Taiwan']",4.993
+How to build a web crawler that respects robots.txt?,build web crawler respect robots.txt,3.8944,"['web crawler robots.txt', 'build web scraper robots.txt compliance', 'develop web spider handle robots.txt']",4.4213
+台北有什麼好吃的牛肉麵推薦？,"['台北 牛肉麵 推薦', '台北 好吃 牛肉麵', '台北 牛肉麵 必吃']",3.5344,"['台北 牛肉麵 推薦', '台北 必吃 牛肉麵', '台北 美食 牛肉麵']",4.0375
+Deep learning vs Machine learning differences,"['Deep learning vs Machine learning differences', 'Deep learning Machine learning comparison', 'Machine learning vs Deep learning explained', 'Deep learning and Machine learning distinction']",2.7148,"['Deep learning Machine learning differences', 'Deep learning Machine learning comparison', 'Deep learning vs Machine learning']",3.0204
+Apple stock,Apple stock,2.5739,"['Apple stock', 'AAPL shares', 'Apple stock price']",3.0604

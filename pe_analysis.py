@@ -38,7 +38,8 @@ def main():
         "What Taiwanese universities are strong in AI research?", # 範例：專題說明書的例子
         "How to build a web crawler that respects robots.txt?",   # 複雜：包含技術細節
         "台北有什麼好吃的牛肉麵推薦？",                           # 中文：在地化查詢
-        "Deep learning vs Machine learning differences"         # 比較：概念釐清
+        "Deep learning vs Machine learning differences",         # 比較：概念釐清
+        "Apple stock"
     ]
 
     results = []
