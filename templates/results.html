@@ -4,170 +4,110 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ query }} - Search Results</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        .result-item { margin-bottom: 25px; }
+        .result-title { font-size: 1.25rem; }
+        .result-title a { text-decoration: none; }
+        .result-url { color: #006621; font-size: 0.9rem; margin-bottom: 2px; }
+        .result-snippet { color: #4d5156; font-size: 0.95rem; }
+        .meta-info { color: #70757a; font-size: 0.85rem; margin-bottom: 15px; }
+        .score-badge { font-size: 0.75rem; background-color: #e9ecef; color: #666; padding: 2px 6px; border-radius: 4px; }
         
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background-color: #fff;
-            color: #202124;
+        /* [新增] GenAI 區塊的樣式 */
+        .ai-summary-box {
+            background-color: #f0f7ff; /* 淺藍色背景 */
+            border: 1px solid #cce5ff;
+            border-left: 5px solid #0d6efd; /* 左側加粗藍線 */
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 8px;
         }
-        
-        header {
+        .ai-title {
+            font-weight: bold;
+            color: #0d6efd;
+            margin-bottom: 10px;
             display: flex;
             align-items: center;
-            padding: 20px;
-            border-bottom: 1px solid #ebebeb;
+            font-size: 1.1rem;
         }
-        
-        .logo {
-            font-size: 30px;
-            font-weight: bold;
-            margin-right: 30px;
-            text-decoration: none;
-        }
-        
-        .logo span:nth-child(1) { color: #4285f4; }
-        .logo span:nth-child(2) { color: #ea4335; }
-        .logo span:nth-child(3) { color: #fbbc05; }
-        .logo span:nth-child(4) { color: #4285f4; }
-        .logo span:nth-child(5) { color: #34a853; }
-        .logo span:nth-child(6) { color: #ea4335; }
-        
-        .search-box {
-            display: flex;
-            flex: 1;
-            max-width: 600px;
-            border: 1px solid #dfe1e5;
-            border-radius: 24px;
-            padding: 8px 15px;
-            background: white;
-        }
-        
-        .search-box:hover {
-            box-shadow: 0 1px 6px rgba(32, 33, 36, 0.2);
-        }
-        
-        .search-input {
-            flex: 1;
-            border: none;
-            outline: none;
-            font-size: 16px;
-        }
-        
-        .search-button {
-            background: none;
-            border: none;
-            cursor: pointer;
-            color: #4285f4;
-            font-size: 14px;
-            padding: 5px 10px;
-        }
-        
-        main {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        .stats {
-            color: #70757a;
-            font-size: 14px;
+        .ai-icon { margin-right: 8px; font-size: 1.2rem; }
+        .generated-keywords-section {
             margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
         }
-        
-        .results {
-            list-style: none;
-        }
-        
-        .result-item {
-            margin-bottom: 30px;
-        }
-        
-        .result-url {
-            font-size: 14px;
-            color: #202124;
-            margin-bottom: 3px;
-            word-break: break-all;
-        }
-        
-        .result-title {
-            font-size: 20px;
-            color: #1a0dab;
-            text-decoration: none;
-            display: block;
-            margin-bottom: 5px;
-        }
-        
-        .result-title:hover {
-            text-decoration: underline;
-        }
-        
-        .result-snippet {
-            font-size: 14px;
-            color: #4d5156;
-            line-height: 1.58;
-        }
-        
-        .result-score {
-            font-size: 12px;
-            color: #70757a;
-            margin-top: 5px;
-        }
-        
-        .no-results {
-            padding: 40px;
-            text-align: center;
-            color: #70757a;
-        }
-        
-        .no-results h2 {
-            margin-bottom: 10px;
-            color: #202124;
+        .ai-badge {
+            background-color: #e7f1ff;
+            color: #0d6efd;
+            border: 1px solid #b6d4fe;
+            margin-right: 5px;
+            font-weight: normal;
         }
     </style>
 </head>
 <body>
-    <header>
-        <a href="/" class="logo">
-            <span>S</span><span>e</span><span>a</span><span>r</span><span>c</span><span>h</span>
-        </a>
-        
-        <form action="/search" method="GET">
-            <div class="search-box">
-                <input type="text" name="q" class="search-input" 
-                       value="{{ query }}" autocomplete="off">
-                <button type="submit" class="search-button">Search</button>
-            </div>
+
+<nav class="navbar navbar-light bg-light border-bottom mb-4">
+    <div class="container">
+        <a class="navbar-brand fw-bold text-primary" href="/">MySearch</a>
+        <form class="d-flex flex-grow-1" action="/search" method="get" style="max-width: 600px;">
+            <input class="form-control me-2" type="search" name="q" value="{{ query }}" aria-label="Search">
+            <button class="btn btn-outline-primary" type="submit">Search</button>
         </form>
-    </header>
-    
-    <main>
-        {% if results %}
-            <p class="stats">About {{ results|length }} results ({{ time }} seconds)</p>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-8">
             
-            <ul class="results">
-                {% for result in results %}
-                <li class="result-item">
-                    <div class="result-url">{{ result.url }}</div>
-                    <a href="{{ result.url }}" class="result-title" target="_blank">
-                        {{ result.title or 'Untitled' }}
-                    </a>
-                    <p class="result-snippet">{{ result.content }}</p>
-                    <p class="result-score">Relevance score: {{ result.score }}</p>
-                </li>
+            {% if generated_queries %}
+            <div class="generated-keywords-section">
+                <small class="text-muted d-block mb-2">✨ AI Rewritten Queries (Gemini):</small>
+                {% for q in generated_queries %}
+                    <span class="badge rounded-pill ai-badge">{{ q }}</span>
                 {% endfor %}
-            </ul>
-        {% else %}
-            <div class="no-results">
-                <h2>No results found for "{{ query }}"</h2>
-                <p>Try different keywords or check your spelling.</p>
             </div>
-        {% endif %}
-    </main>
+            {% endif %}
+
+            {% if ai_response %}
+            <div class="ai-summary-box">
+                <div class="ai-title">
+                    <span class="ai-icon">🤖</span> Gemini AI 摘要與解釋
+                </div>
+                <div style="white-space: pre-line; line-height: 1.6;">{{ ai_response }}</div>
+            </div>
+            {% endif %}
+
+            <p class="meta-info">
+                About {{ count }} results ({{ "%.4f"|format(time_taken) }} seconds)
+            </p>
+
+            {% if results %}
+                {% for result in results %}
+                <div class="result-item">
+                    <div class="result-url">{{ result.url }}</div>
+                    <div class="result-title">
+                        <a href="{{ result.url }}" target="_blank">{{ result.title }}</a>
+                    </div>
+                    <div class="result-snippet">
+                        {{ result.snippet }}
+                    </div>
+                    <div class="mt-1">
+                        <span class="score-badge">Score: {{ result.score }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-warning">
+                    No results found for "<strong>{{ query }}</strong>". <br>
+                    Try different keywords or check your spelling.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
 </body>
 </html>

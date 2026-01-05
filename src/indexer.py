@@ -1,136 +1,126 @@
-"""Indexer module for building inverted index."""
-
+import json
+import re
 import math
 import pickle
-from collections import defaultdict
-from typing import Dict, List, Tuple
+import os
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer  # [新增] 引入詞幹提取器
+from collections import defaultdict, Counter
 
-from .utils import tokenize
-
+# 確保 NLTK 資源已下載
+try:
+    nltk.data.find('corpora/stopwords')
+except LookupError:
+    nltk.download('stopwords')
 
 class Indexer:
-    """Builds and manages the inverted index for search."""
-    
-    def __init__(self):
-        """Initialize the indexer."""
-        self.inverted_index: Dict[str, List[Tuple[int, float]]] = defaultdict(list)
-        self.documents: List[Dict] = []
-        self.doc_lengths: Dict[int, int] = {}
-        self.avg_doc_length: float = 0.0
+    def __init__(self, data_file='data/crawled_data.json', index_file='data/inverted_index.pkl'):
+        self.data_file = data_file
+        self.index_file = index_file
+        self.documents = {}
+        self.inverted_index = defaultdict(dict)
+        self.idf = {}
+        self.stop_words = set(stopwords.words('english'))
+        self.stemmer = PorterStemmer()  # [新增] 初始化 Stemmer
+
+    def load_data(self):
+        """讀取爬蟲抓下來的 JSON 資料"""
+        if not os.path.exists(self.data_file):
+            raise FileNotFoundError(f"Data file {self.data_file} not found. Run crawler first.")
         
-    def build_index(self, documents: List[Dict]) -> None:
-        """
-        Build the inverted index from a list of documents.
-        
-        Args:
-            documents: List of document dictionaries with 'url', 'title', 'content'.
-        """
-        self.documents = documents
-        self.inverted_index = defaultdict(list)
-        
-        # First pass: tokenize all documents and calculate document lengths
-        doc_tokens: List[List[str]] = []
-        total_length = 0
-        
-        for doc_id, doc in enumerate(documents):
-            # Combine title and content for indexing
-            text = f"{doc.get('title', '')} {doc.get('content', '')}"
-            tokens = tokenize(text)
-            doc_tokens.append(tokens)
-            self.doc_lengths[doc_id] = len(tokens)
-            total_length += len(tokens)
-        
-        # Calculate average document length
-        if documents:
-            self.avg_doc_length = total_length / len(documents)
-        
-        # Second pass: build the inverted index with TF-IDF scores
-        # Calculate document frequency for each term
-        doc_freq: Dict[str, int] = defaultdict(int)
-        for tokens in doc_tokens:
-            unique_terms = set(tokens)
-            for term in unique_terms:
-                doc_freq[term] += 1
-        
-        # Build the index
-        num_docs = len(documents)
-        for doc_id, tokens in enumerate(doc_tokens):
-            # Calculate term frequency for this document
-            term_freq: Dict[str, int] = defaultdict(int)
-            for token in tokens:
-                term_freq[token] += 1
+        with open(self.data_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
             
-            # Calculate TF-IDF for each term
-            for term, tf in term_freq.items():
-                # TF: normalized by document length
-                tf_normalized = tf / len(tokens) if tokens else 0
-                
-                # IDF: log(N / df)
-                idf = math.log(num_docs / doc_freq[term]) if doc_freq[term] > 0 else 0
-                
-                # TF-IDF score
-                tfidf = tf_normalized * idf
-                
-                self.inverted_index[term].append((doc_id, tfidf))
-        
-        # Sort posting lists by TF-IDF score (descending)
-        for term in self.inverted_index:
-            self.inverted_index[term].sort(key=lambda x: x[1], reverse=True)
-    
-    def get_postings(self, term: str) -> List[Tuple[int, float]]:
+        for idx, entry in enumerate(data):
+            self.documents[idx] = entry
+
+    def preprocess(self, text):
         """
-        Get the posting list for a term.
+        文字前處理：轉小寫 -> 移除標點 -> Tokenize -> 移除 Stopwords -> Stemming
+        """
+        text = text.lower()
+        text = re.sub(r'[^\w\s]', ' ', text) # 將標點符號換成空白，避免黏字
+        tokens = text.split()
         
-        Args:
-            term: The term to look up.
+        # [修改] 加入 Stemming (還原詞幹)
+        # 例如: "schools" -> "school", "running" -> "run"
+        clean_tokens = [
+            self.stemmer.stem(t) 
+            for t in tokens 
+            if t not in self.stop_words and len(t) > 1
+        ]
+        return clean_tokens
+
+    def build_index(self):
+        """建立倒排索引 (包含 SEO 權重優化)"""
+        print("Building index with SEO optimization...")
+        
+        N = len(self.documents)
+        doc_term_freqs = {}
+        df_counts = Counter()
+        
+        # --- Step 1: 計算 TF & DF ---
+        for doc_id, doc_data in self.documents.items():
+            # [SEO 核心優化]：欄位加權 (Field Weighting)
+            # 1. 處理 URL：把網址中的符號去掉，當作關鍵字來源
+            #    例如 "python.org" -> "python org"
+            clean_url = re.sub(r'[^\w\s]', ' ', doc_data['url'])
             
-        Returns:
-            List of (doc_id, score) tuples.
-        """
-        term = term.lower()
-        return self.inverted_index.get(term, [])
-    
-    def save_index(self, filepath: str) -> None:
-        """
-        Save the index to a pickle file.
-        
-        Args:
-            filepath: Path to save the index.
-        """
-        data = {
-            'inverted_index': dict(self.inverted_index),
-            'documents': self.documents,
-            'doc_lengths': self.doc_lengths,
-            'avg_doc_length': self.avg_doc_length
+            # 2. 組合內容並給予權重
+            #    - Title 重複 5 次 (權重最高)
+            #    - URL 重複 3 次 (權重次之)
+            #    - Text 重複 1 次 (一般內容)
+            #    原理：首頁字數少，標題重複 5 次後，關鍵字密度(Density)會變得超高！
+            content = (doc_data['title'] + " ") * 5 + \
+                      (clean_url + " ") * 3 + \
+                      doc_data['text']
+            
+            tokens = self.preprocess(content)
+            
+            # 計算 TF (Term Frequency)
+            term_counts = Counter(tokens)
+            total_terms = len(tokens) if len(tokens) > 0 else 1
+            
+            doc_term_freqs[doc_id] = {
+                term: count / total_terms 
+                for term, count in term_counts.items()
+            }
+            
+            # 更新 DF
+            for term in term_counts.keys():
+                df_counts[term] += 1
+                
+        # --- Step 2: 計算 IDF ---
+        for term, df in df_counts.items():
+            self.idf[term] = math.log10(N / df)
+            
+        # --- Step 3: 計算最終 TF-IDF 與 Document Magnitude ---
+        for doc_id, tf_dict in doc_term_freqs.items():
+            magnitude_sq = 0
+            for term, tf in tf_dict.items():
+                idf = self.idf[term]
+                weight = tf * idf
+                self.inverted_index[term][doc_id] = weight
+                magnitude_sq += weight ** 2
+            
+            self.documents[doc_id]['magnitude'] = math.sqrt(magnitude_sq)
+                
+        print(f"Index built! Total terms: {len(self.inverted_index)}")
+
+    def save_index(self):
+        os.makedirs(os.path.dirname(self.index_file), exist_ok=True)
+        data_to_save = {
+            "inverted_index": self.inverted_index,
+            "documents": self.documents,
+            "idf": self.idf
         }
-        with open(filepath, 'wb') as f:
-            pickle.dump(data, f)
-    
-    def load_index(self, filepath: str) -> None:
-        """
-        Load the index from a pickle file.
-        
-        Args:
-            filepath: Path to the index file.
-        """
-        with open(filepath, 'rb') as f:
-            data = pickle.load(f)
-        
-        self.inverted_index = defaultdict(list, data['inverted_index'])
-        self.documents = data['documents']
-        self.doc_lengths = data['doc_lengths']
-        self.avg_doc_length = data['avg_doc_length']
-    
-    def get_document(self, doc_id: int) -> Dict:
-        """
-        Get a document by its ID.
-        
-        Args:
-            doc_id: The document ID.
-            
-        Returns:
-            Document dictionary.
-        """
-        if 0 <= doc_id < len(self.documents):
-            return self.documents[doc_id]
-        return {}
+        with open(self.index_file, 'wb') as f:
+            pickle.dump(data_to_save, f)
+        print(f"Index saved to {self.index_file}")
+
+if __name__ == "__main__":
+    indexer = Indexer()
+    indexer.load_data()
+    indexer.build_index()
+    indexer.save_index()

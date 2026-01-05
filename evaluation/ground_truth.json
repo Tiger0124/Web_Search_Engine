@@ -1,14 +1,26 @@
 {
-    "python tutorial": [
-        "https://docs.python.org/3/tutorial/",
-        "https://www.python.org/about/gettingstarted/"
+    "python": [
+        "https://docs.python.org/3/",
+        "https://www.python.org/about/gettingstarted/",
+        "https://docs.python.org/3.15/",
+        "https://docs.python.org/"
     ],
-    "web development": [
-        "https://developer.mozilla.org/en-US/docs/Learn",
-        "https://www.w3schools.com/"
+    "w3schools": [
+        "https://www.w3schools.com",
+        "https://www.w3schools.com/academy/index.php",
+        "https://www.w3schools.com/spaces/index.php",
+        "https://www.w3schools.com/html/default.asp"
     ],
-    "machine learning": [
-        "https://scikit-learn.org/",
-        "https://www.tensorflow.org/"
+    "tensorflow": [
+        "https://www.tensorflow.org/",
+        "https://www.tensorflow.org/learn",
+        "https://www.tensorflow.org/tutorials",
+        "https://www.tensorflow.org/guide",
+        "https://www.tensorflow.org/resources/learn-ml"
+    ],
+    "Sass": [
+        "https://www.w3schools.com/sass/sass_functions_string.asp",
+        "https://www.w3schools.com/",
+        "https://developer.mozilla.org/"
     ]
 }
